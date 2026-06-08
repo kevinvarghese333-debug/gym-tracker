@@ -81,6 +81,13 @@ const EXERCISE_DB = [
   "Assisted Pull-Up","Assisted Dip",
 ].sort();
 
+// ─── PROFILES ────────────────────────────────────────────────────────────────
+
+const DEFAULT_PROFILES = [
+  { id:"kevin", name:"Kevin", emoji:"💪" },
+  { id:"greeny", name:"Greeny", emoji:"🌿" },
+];
+
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
 const DAY_SPLITS = {
@@ -333,17 +340,30 @@ function ExerciseProgressChart({ logs, exerciseName }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 
 export default function GymTracker() {
+  const [activeUser, setActiveUser]         = useState(() => loadStorage("gt_active_user", "kevin"));
   const [screen, setScreen]                 = useState("home");
-  const [schedule, setSchedule]             = useState(() => loadStorage("gt_schedule", DEFAULT_SCHEDULE));
-  const [logs, setLogs]                     = useState(() => loadStorage("gt_logs", {}));
+  const [schedule, setSchedule]             = useState(() => loadStorage(`gt_schedule_${loadStorage("gt_active_user","kevin")}`, DEFAULT_SCHEDULE));
+  const [logs, setLogs]                     = useState(() => loadStorage(`gt_logs_${loadStorage("gt_active_user","kevin")}`, {}));
   const [workoutSession, setWorkoutSession] = useState(null);
   const [editScheduleDay, setEditScheduleDay] = useState(null);
   const [toast, setToast]                   = useState(null);
   const [selectedCalDate, setSelectedCalDate] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState("");
 
-  useEffect(() => { localStorage.setItem("gt_schedule", JSON.stringify(schedule)); }, [schedule]);
-  useEffect(() => { localStorage.setItem("gt_logs",     JSON.stringify(logs));     }, [logs]);
+  // When user switches, reload their data
+  function switchUser(uid) {
+    setActiveUser(uid);
+    localStorage.setItem("gt_active_user", JSON.stringify(uid));
+    setSchedule(loadStorage(`gt_schedule_${uid}`, DEFAULT_SCHEDULE));
+    setLogs(loadStorage(`gt_logs_${uid}`, {}));
+    setScreen("home");
+    setWorkoutSession(null);
+    const profile = DEFAULT_PROFILES.find(p => p.id === uid);
+    showToast(`Switched to ${profile?.name} ${profile?.emoji}`);
+  }
+
+  useEffect(() => { localStorage.setItem(`gt_schedule_${activeUser}`, JSON.stringify(schedule)); }, [schedule, activeUser]);
+  useEffect(() => { localStorage.setItem(`gt_logs_${activeUser}`,     JSON.stringify(logs));     }, [logs, activeUser]);
 
   const stats = useMemo(() => computeStats(logs), [logs]);
 
@@ -444,7 +464,22 @@ export default function GymTracker() {
               <div style={S.greeting}>Today</div>
               <div style={{ ...S.dayBadge, background:todayConfig.color }}>{todayConfig.emoji} {todayType} Day</div>
             </div>
-            <div style={{ display:"flex", gap:6 }}>
+            <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+              {/* Profile switcher */}
+              <div style={{ display:"flex", background:"#1a1a2e", borderRadius:10, overflow:"hidden" }}>
+                {DEFAULT_PROFILES.map(p => (
+                  <button key={p.id}
+                    onClick={() => activeUser!==p.id && switchUser(p.id)}
+                    style={{
+                      border:"none", cursor:"pointer", padding:"6px 10px", fontSize:12, fontWeight:700,
+                      background: activeUser===p.id ? "#4D9EFF" : "transparent",
+                      color: activeUser===p.id ? "#000" : "#555",
+                      transition:"all 0.2s",
+                    }}>
+                    {p.emoji} {p.name}
+                  </button>
+                ))}
+              </div>
               <button style={S.iconBtn} onClick={exportData} title="Backup">📦</button>
               <label style={{ ...S.iconBtn, cursor:"pointer", display:"flex", alignItems:"center" }} title="Restore">
                 📥<input type="file" accept=".json" style={{ display:"none" }} onChange={importData} />

@@ -101,7 +101,14 @@ const WEEK_DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DEFAULT_SCHEDULE = ["Push","Pull","Legs","Rest","Push","Pull","Rest"];
 const empty3Sets = () => [{reps:"",weight:""},{reps:"",weight:""},{reps:"",weight:""}];
 
-function todayKey() { return new Date().toISOString().split("T")[0]; }
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function parseLocalDate(dateStr) {
+  const [y,m,d] = dateStr.split("-").map(Number);
+  return new Date(y, m-1, d);
+}
 function loadStorage(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
   catch { return fallback; }
@@ -134,14 +141,14 @@ function computeStats(logs) {
   let streak = 0;
   if (dates.length) {
     const weeks = new Set(dates.map(d => {
-      const dt = new Date(d), jan1 = new Date(dt.getFullYear(),0,1);
+      const dt = parseLocalDate(d), jan1 = new Date(dt.getFullYear(),0,1);
       return dt.getFullYear()+"-W"+Math.ceil(((dt-jan1)/86400000+jan1.getDay()+1)/7);
     }));
     streak = weeks.size;
   }
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate()-now.getDay());
-  const thisWeek = Object.keys(logs).filter(d=>new Date(d)>=weekStart).reduce((a,d)=>a+logs[d].length,0);
+  const thisWeek = Object.keys(logs).filter(d=>parseLocalDate(d)>=weekStart).reduce((a,d)=>a+logs[d].length,0);
   return { totalWorkouts, totalVolume, byType, topExercises, streak, thisWeek, exStats };
 }
 
@@ -213,7 +220,7 @@ function MonthCalendar({ logs, onDateClick }) {
   const workoutDays = useMemo(() => {
     const map = {};
     Object.entries(logs).forEach(([date,sessions]) => {
-      const d = new Date(date);
+      const d = parseLocalDate(date);
       if (d.getFullYear()===year && d.getMonth()===month)
         map[d.getDate()] = sessions.map(s=>s.type);
     });
